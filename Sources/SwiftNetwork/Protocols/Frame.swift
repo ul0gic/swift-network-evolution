@@ -27,6 +27,35 @@ internal import Logging
 internal import os
 #endif
 
+/// Tracks all storage fragments derived from one outbound frame on its protocol scheduler.
+@_spi(ProtocolProvider)
+@available(Network 0.1.0, *)
+public final class FrameStorageCompletion {
+    private var fragments = 1
+    private var succeeded = true
+    private var completion: (@Sendable (Bool) -> Void)?
+
+    public init(_ completion: @escaping @Sendable (Bool) -> Void) {
+        self.completion = completion
+    }
+
+    func retainFragment() {
+        precondition(fragments > 0)
+        fragments += 1
+    }
+
+    func releaseFragment(success: Bool) {
+        precondition(fragments > 0)
+        succeeded = succeeded && success
+        fragments -= 1
+        if fragments == 0 {
+            let callback = completion
+            completion = nil
+            callback?(succeeded)
+        }
+    }
+}
+
 @_spi(ProtocolProvider)
 @available(Network 0.1.0, *)
 public struct Frame: ~Copyable {
@@ -43,6 +72,7 @@ public struct Frame: ~Copyable {
     var ipPacketValues: IPPacketValues? = nil
     public var buffer: Buffer
     var appMetadata: AppMetadata? = nil
+    public var storageCompletion: FrameStorageCompletion? = nil
 
     private var _startOffset: UInt32 = 0
 
@@ -476,8 +506,11 @@ public struct Frame: ~Copyable {
     }
 
     public mutating func finalize(success: Bool) {
+        let completion = storageCompletion
+        storageCompletion = nil
         finalizeBufferOnly(success: success)
         self = .init()
+        completion?.releaseFragment(success: success)
     }
 
     // MARK: - Flags and IP packet values

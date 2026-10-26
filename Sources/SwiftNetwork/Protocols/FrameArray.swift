@@ -234,6 +234,8 @@ public struct FrameArray: ~Copyable {
                 if partialBytesToReturn < partialBytesToKeep {
                     // In this case, the new split frame is the one we return
                     var splitFrame = Frame(count: partialBytesToReturn)
+                    splitFrame.storageCompletion = frames[0].storageCompletion
+                    splitFrame.storageCompletion?.retainFragment()
                     let bytesCopied = frames[0].copyInto(&splitFrame, length: partialBytesToReturn)
                     precondition(bytesCopied == partialBytesToReturn)
 
@@ -246,6 +248,8 @@ public struct FrameArray: ~Copyable {
                 } else {
                     // In this case, the new split frame is the one we keep
                     var splitFrame = Frame(count: partialBytesToKeep)
+                    splitFrame.storageCompletion = frames[0].storageCompletion
+                    splitFrame.storageCompletion?.retainFragment()
                     let bytesCopied = frames[0].copyInto(
                         &splitFrame,
                         fromOffset: partialBytesToReturn,
@@ -256,6 +260,12 @@ public struct FrameArray: ~Copyable {
                     // Claim from the end of the original frame
                     let claimed = frames[0].claim(fromStart: 0, fromEnd: partialBytesToKeep)
                     precondition(claimed)
+
+                    // Completion belongs to the suffix, never the returned prefix.
+                    splitFrame.connectionComplete = frames[0].connectionComplete
+                    splitFrame.metadataComplete = frames[0].metadataComplete
+                    frames[0].connectionComplete = false
+                    frames[0].metadataComplete = false
 
                     // Swap the new frame with the original frame
                     swap(&splitFrame, &frames[0])
