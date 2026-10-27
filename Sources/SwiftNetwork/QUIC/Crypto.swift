@@ -380,17 +380,23 @@ extension QUICCrypto: TopStreamProtocol, ProtocolInstanceContainer {
         guard let parentConnection else { return }
         parentConnection.log.error("Disconnected: TLS error \(error?.description ?? "<none>")")
         parentConnection.closeFrameType = .crypto
+        let alert: Int64
+        if let code = error?.quicTransportError, QUICTransportError.transportErrorCodeIsCryptoError(code) {
+            alert = code - 0x0100
+        } else {
+            alert = 0
+        }
 
         // Closing already being deferred, no need to schedule asynchronously
         if parentConnection.deferClosing {
-            parentConnection.close(withCryptoError: 0, "TLS error")
+            parentConnection.close(withCryptoError: alert, "TLS error")
         } else {
             parentConnection.deferClosing = true
             // Note that close(withCryptoError:) will set the error but not actually
             // close when deferClosing is set. We then async to complete closing.
             // This is done to avoid closing in the wrong protocol state and causing
             // re-entrancy.
-            parentConnection.close(withCryptoError: 0, "TLS error")
+            parentConnection.close(withCryptoError: alert, "TLS error")
             parentConnection.async {
                 parentConnection.deferClosing = false
                 if parentConnection.closeError != nil {

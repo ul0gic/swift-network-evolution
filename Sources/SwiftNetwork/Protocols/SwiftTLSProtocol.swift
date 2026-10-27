@@ -627,7 +627,12 @@ public struct SwiftTLSProtocol: NetworkProtocol {
 
         func reportError(_ error: Int32) {
             handle.log.error("Reporting TLS error \(error)")
-            handle.deliverDisconnectedEvent(error: NetworkError.posix(error))
+            if let alert = handshaker.alertDescription {
+                let cryptoError = QUICTransportError(.crypto(Int64(alert)), "TLS error")
+                handle.deliverDisconnectedEvent(error: NetworkError(quicTransportError: cryptoError))
+            } else {
+                handle.deliverDisconnectedEvent(error: NetworkError.posix(error))
+            }
         }
 
         func sendMessage(_ message: [UInt8], level: SwiftTLSOptions.EncryptionLevel) {
@@ -1211,6 +1216,8 @@ class SwiftTLSHandshaker {
     public var receivedSessionTickets = [[UInt8]]()
 
     public var errorCode: Int32 { 0 }
+
+    public var alertDescription: UInt8? { nil }
 
     public func setupHandshake(options: SwiftTLSOptions) throws -> [UInt8]? { nil }
 
