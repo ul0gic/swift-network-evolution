@@ -125,6 +125,7 @@ public struct SwiftTLSProtocol: NetworkProtocol {
         #else
         private struct SwiftTLSOptionsStorage {
             var serverName: String?
+            var receivedServerNameValidator: (@Sendable (String?) -> Bool)?
             var quicTransportParameters: [UInt8]?
             var applicationProtocols: [String]?
             var trustedRawPublicKeyCertificates: [[UInt8]]?
@@ -139,6 +140,7 @@ public struct SwiftTLSProtocol: NetworkProtocol {
             get {
                 var tlsOptions = SwiftTLSOptions()
                 tlsOptions.serverName = _tlsOptions.serverName
+                tlsOptions.receivedServerNameValidator = _tlsOptions.receivedServerNameValidator
                 tlsOptions.quicTransportParameters = _tlsOptions.quicTransportParameters
                 tlsOptions.applicationProtocols = _tlsOptions.applicationProtocols
                 tlsOptions.trustedRawPublicKeyCertificates = _tlsOptions.trustedRawPublicKeyCertificates
@@ -159,6 +161,7 @@ public struct SwiftTLSProtocol: NetworkProtocol {
             }
             set {
                 _tlsOptions.serverName = newValue.serverName
+                _tlsOptions.receivedServerNameValidator = newValue.receivedServerNameValidator
                 _tlsOptions.quicTransportParameters = newValue.quicTransportParameters
                 _tlsOptions.applicationProtocols = newValue.applicationProtocols
                 _tlsOptions.trustedRawPublicKeyCertificates = newValue.trustedRawPublicKeyCertificates
@@ -282,6 +285,12 @@ public struct SwiftTLSProtocol: NetworkProtocol {
             else {
                 throw NetworkError.posix(EINVAL)
             }
+
+            #if !IMPORT_SWIFTTLS || !canImport(SwiftTLS)
+            guard protocolOptions.tlsOptions.receivedServerNameValidator == nil else {
+                throw NetworkError.posix(EINVAL)
+            }
+            #endif
 
             if protocolOptions.tlsOptions.quicTransportParameters == nil {
                 #if HAS_SWIFTTLS_RECORD && IMPORT_SWIFTTLS && canImport(SwiftTLS)
@@ -1174,6 +1183,7 @@ public struct SwiftTLSOptions {
     public var enableEarlyData: Bool = false
     public var applicationProtocols: [String]?
     public var serverName: String? = nil
+    public var receivedServerNameValidator: (@Sendable (String?) -> Bool)? = nil
     public enum KeyExchangeGroup: UInt16 {
         case secp256 = 0x0017
         case secp384 = 0x0018

@@ -99,7 +99,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.6.0")),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "5.0.0-beta.1"),
-        .package(url: "https://github.com/apple/swift-tls.git", .upToNextMinor(from: "0.1.2")),
+        .package(url: "https://github.com/ul0gic/swift-tls.git", revision: "52e645b8ffccbfb72b22d009c3fc2480c546f3bf"),
     ],
     targets: [
         .target(
